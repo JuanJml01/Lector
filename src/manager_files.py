@@ -1,4 +1,5 @@
 """Modulo donde se maneja los archivos"""
+import json
 
 
 def read_file_range(file_path, start_line=None, end_line=None):
@@ -29,6 +30,7 @@ def read_file_range(file_path, start_line=None, end_line=None):
     end = end_line if end_line else len(lines)
     # Extracción y unión del contenido
     return ''.join(lines[start:end])
+
 
 def modificar_archivo(path, contenido, inicio=None, fin=None):
     """
@@ -123,3 +125,144 @@ def escribir_archivo(ruta: str, contenido: str) -> None:
     except Exception as error:
         # Manejo de errores en caso de que la escritura falle
         print(f"Ocurrió un error al escribir el archivo: {error}")
+
+
+import json
+
+import json
+import os
+
+
+def actualizar_archivo_json(path, nuevos_datos):
+    """
+    Actualiza o inserta definiciones de funciones en un archivo JSON que organiza la información
+    por archivos (por ejemplo, "llm_api.py") y, para cada archivo, una lista de definiciones de funciones.
+
+    La función procede de la siguiente forma:
+      - Si el archivo JSON ya existe, se carga su contenido; de lo contrario se parte de un diccionario vacío.
+      - Para cada clave en 'nuevos_datos':
+          - Si la clave existe en el JSON, se recorre la lista de funciones existente y se actualiza cada
+            definición que coincida con la función nueva (basada en el nombre de la función). Si la función
+            no existe, se agrega a la lista.
+          - Si la clave no existe, se añade al JSON con el valor proporcionado.
+      - Se escribe el archivo actualizando el contenido con formato legible (indentado).
+
+    Args:
+        path (str): Ruta completa del archivo JSON a modificar.
+        nuevos_datos (dict): Diccionario con la nueva información a agregar o actualizar.
+            Formato esperado:
+            {
+                "nombre_archivo": [
+                    { "nombre_funcion": { ... detalles ... } },
+                    ...
+                ],
+                ...
+            }
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: Si 'nuevos_datos' no es un diccionario.
+        Exception: Para errores en la lectura o escritura del archivo.
+    """
+    if not isinstance(nuevos_datos, dict):
+        raise ValueError("El parámetro 'nuevos_datos' debe ser un diccionario.")
+
+    # Cargar el contenido existente del archivo JSON, o iniciar con un diccionario vacío.
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf8") as archivo:
+                contenido_existente = json.load(archivo)
+        except Exception as e:
+            raise Exception(f"Error al leer el archivo JSON existente: {e}")
+    else:
+        contenido_existente = {}
+
+    # Recorrer cada clave (nombre de archivo) en los nuevos datos.
+    for archivo_key, definiciones_nuevas in nuevos_datos.items():
+        if not isinstance(definiciones_nuevas, list):
+            raise Exception(f"El valor para la clave '{archivo_key}' debe ser una lista de definiciones.")
+
+        # Si la clave ya existe, actualizar la lista de definiciones.
+        if archivo_key in contenido_existente:
+            definiciones_existentes = contenido_existente[archivo_key]
+            # Validar que la estructura existente sea una lista.
+            if not isinstance(definiciones_existentes, list):
+                raise Exception(f"El valor asociado a la clave '{archivo_key}' no es una lista.")
+            # Para cada definición nueva, actualizar o agregar en la lista existente.
+            for nueva_def in definiciones_nuevas:
+                if not isinstance(nueva_def, dict) or len(nueva_def) != 1:
+                    raise Exception("Cada definición de función debe ser un diccionario con un único par clave-valor.")
+                nombre_funcion = list(nueva_def.keys())[0]
+                actualizada = False
+                # Buscar si la función ya existe en la lista.
+                for idx, def_existente in enumerate(definiciones_existentes):
+                    if isinstance(def_existente, dict) and nombre_funcion in def_existente:
+                        # Actualizar los detalles de la función existente.
+                        definiciones_existentes[idx][nombre_funcion] = nueva_def[nombre_funcion]
+                        actualizada = True
+                        break
+                # Si no se encontró, agregar la nueva definición.
+                if not actualizada:
+                    definiciones_existentes.append(nueva_def)
+            contenido_existente[archivo_key] = definiciones_existentes
+        else:
+            # Si la clave no existe, agregarla completamente.
+            contenido_existente[archivo_key] = definiciones_nuevas
+
+    # Escribir el contenido actualizado de nuevo en el archivo JSON.
+    try:
+        with open(path, "w", encoding="utf8") as archivo:
+            json.dump(contenido_existente, archivo, ensure_ascii=False, indent=4)
+    except Exception as e:
+        raise Exception(f"Error al escribir el archivo JSON actualizado: {e}")
+
+
+# Ejemplos de uso (para pruebas o demostración)
+# if __name__ == "__main__":
+#     # Ejemplo 1: Actualización completa
+#     try:
+#         contenido_completo = {"nombre": "Juan", "edad": 30, "ocupacion": "Ingeniero"}
+#         actualizar_archivo_json("datos.txt", contenido_completo)
+#         print("Archivo actualizado completamente.")
+#     except Exception as error:
+#         print(f"Error actualizando archivo completo: {error}")
+#
+#     # Ejemplo 2: Modificación de un rango específico
+#     try:
+#         contenido_rango = {"titulo": "Actualización", "mensaje": "Este es un mensaje modificado."}
+#         actualizar_archivo_json("log.txt", contenido_rango, inicio=2, fin=4)
+#         print("Archivo modificado en el rango de líneas especificado.")
+#     except Exception as error:
+#         print(f"Error modificando el rango de líneas: {error}")
+#
+#     # Ejemplo 3: Caso límite con diccionario vacío
+#     try:
+#         actualizar_archivo_json("config.txt", {}, inicio=1, fin=2)
+#         print("Archivo actualizado con diccionario vacío en el rango especificado.")
+#     except Exception as error:
+#         print(f"Error en caso de diccionario vacío: {error}")
+
+
+
+def borrar_contenido_archivo_json(ruta_archivo: str) -> None:
+    """
+    Borra el contenido de un archivo JSON, dejando el archivo vacío.
+
+    Parámetros:
+        ruta_archivo (str): Ruta del archivo JSON a modificar.
+
+    Notas:
+        - Se sobreescribe el archivo dejando una cadena vacía.
+        - Si el archivo no existe, se lanzará una excepción.
+    """
+    try:
+        # Se abre el archivo en modo escritura, lo que borra su contenido previamente existente
+        with open(ruta_archivo, 'w', encoding='utf-8') as archivo:
+            archivo.write("")
+        print(f"Contenido del archivo '{ruta_archivo}' borrado exitosamente.")
+    except FileNotFoundError as e:
+        print(f"Error: El archivo no existe: {e}")
+    except Exception as error:
+        print(f"Ocurrió un error al borrar el contenido del archivo: {error}")
